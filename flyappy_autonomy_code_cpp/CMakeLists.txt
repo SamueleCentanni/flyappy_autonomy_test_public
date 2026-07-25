@@ -19,8 +19,13 @@ target_include_directories(flyappy_interface INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+# Add all the new autonomy modules to the main library
 add_library(flyappy
     src/flyappy/flyappy.cpp
+    src/flyappy/mapping/occupancy_grid.cpp
+    src/flyappy/mapping/obstacle_map.cpp
+    src/flyappy/planning/path_planner.cpp
+    src/flyappy/control/controller.cpp
 )
 target_link_libraries(flyappy PUBLIC
     flyappy_interface

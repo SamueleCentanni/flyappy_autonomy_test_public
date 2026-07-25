@@ -1,5 +1,7 @@
 #include "flyappy/flyappy_ros.hpp"
 
+#include <array>
+
 namespace flyappy
 {
 
@@ -20,20 +22,32 @@ FlyappyRos::FlyappyRos(rclcpp::Node::SharedPtr node) : node_(node)
             std::bind(&FlyappyRos::gameEndedCallback, this, std::placeholders::_1));
 }
 
-void FlyappyRos::velocityCallback([[maybe_unused]] const geometry_msgs::msg::Vector3& msg)
+void FlyappyRos::velocityCallback(const geometry_msgs::msg::Vector3& msg)
 {
-    // Example of publishing acceleration command to Flyappy
+    const auto cmd = flyappy_.computeAcceleration(msg.x, msg.y);
+
     geometry_msgs::msg::Vector3 acc_cmd;
-    acc_cmd.x = 0.5;  // move and accelerate Flyappy forward
-    acc_cmd.y = 0;
+    acc_cmd.x = cmd.ax;
+    acc_cmd.y = cmd.ay;
     pub_acceleration_command_->publish(acc_cmd);
 }
 
 void FlyappyRos::laserScanCallback(const sensor_msgs::msg::LaserScan& msg)
 {
-    // Example of printing laser angle and range
-    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000,
-                         "Laser range: %f, angle: %f", msg.ranges[0], msg.angle_min);
+    if (msg.ranges.size() != flyappy::kNumRays)
+    {
+        RCLCPP_WARN(node_->get_logger(), "Unexpected number of laser rays: %zu",
+                    msg.ranges.size());
+        return;
+    }
+
+    std::array<double, flyappy::kNumRays> ranges{};
+    for (size_t i = 0; i < flyappy::kNumRays; ++i)
+    {
+        ranges[i] = static_cast<double>(msg.ranges[i]);
+    }
+
+    flyappy_.setLaserScan(ranges);
 }
 
 void FlyappyRos::gameEndedCallback(const std_msgs::msg::Bool& msg)
@@ -47,7 +61,7 @@ void FlyappyRos::gameEndedCallback(const std_msgs::msg::Bool& msg)
         RCLCPP_INFO(node_->get_logger(), "End of countdown.");
     }
 
-    flyappy_ = Flyappy{};
+    flyappy_.reset();
 }
 
 }  // namespace flyappy
